@@ -28,10 +28,12 @@ targetCompatibility = JavaVersion.VERSION_1_8
 
 repositories {
     jcenter()
+    google()
 }
 
 dependencies {
-    api 'org.smali:dexlib2:' + dexlib2Version
+    api 'com.android.tools.smali:smali-dexlib2:' + dexlib2Version
+    api 'com.google.guava:guava:32.1.2-jre'
 }
 
 apply from: 'configure-artifacts.gradle'
