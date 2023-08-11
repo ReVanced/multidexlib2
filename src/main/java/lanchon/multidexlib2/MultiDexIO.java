@@ -14,11 +14,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
 import com.android.tools.smali.dexlib2.iface.DexFile;
 import com.android.tools.smali.dexlib2.iface.MultiDexContainer;
+import com.android.tools.smali.dexlib2.writer.io.MemoryDataStore;
 
 public class MultiDexIO {
 
@@ -65,51 +67,46 @@ public class MultiDexIO {
 
 	// Write
 
-	public static int writeDexFile(boolean multiDex, File file, DexFileNamer namer, DexFile dexFile,
+	public static int writeDexFile(boolean multiDex, Map<String, MemoryDataStore> output, DexFileNamer namer, DexFile dexFile,
 			int maxDexPoolSize, DexIO.Logger logger) throws IOException {
-		return writeDexFile(multiDex, 1, file, namer, dexFile, maxDexPoolSize, logger);
+		return writeDexFile(multiDex, 1, output, namer, dexFile, maxDexPoolSize, logger);
 	}
 
-	public static int writeDexFile(boolean multiDex, int threadCount, File file, DexFileNamer namer, DexFile dexFile,
+	public static int writeDexFile(boolean multiDex, int threadCount, Map<String, MemoryDataStore> output, DexFileNamer namer, DexFile dexFile,
 			int maxDexPoolSize, DexIO.Logger logger) throws IOException {
-		return writeDexFile(multiDex, threadCount, file, namer, dexFile, 0, false, maxDexPoolSize, logger);
+		return writeDexFile(multiDex, threadCount, output, namer, dexFile, 0, false, maxDexPoolSize, logger);
 	}
 
-	public static int writeDexFile(boolean multiDex, File file, DexFileNamer namer, DexFile dexFile,
+	public static int writeDexFile(boolean multiDex, Map<String, MemoryDataStore> output, DexFileNamer namer, DexFile dexFile,
 			int minMainDexClassCount, boolean minimalMainDex, int maxDexPoolSize,
 			DexIO.Logger logger) throws IOException {
-		return writeDexFile(multiDex, 1, file, namer, dexFile, minMainDexClassCount, minimalMainDex, maxDexPoolSize,
+		return writeDexFile(multiDex, 1, output, namer, dexFile, minMainDexClassCount, minimalMainDex, maxDexPoolSize,
 				logger);
 	}
 
-	public static int writeDexFile(boolean multiDex, int threadCount, File file, DexFileNamer namer, DexFile dexFile,
+	public static int writeDexFile(boolean multiDex, int threadCount, Map<String, MemoryDataStore> output, DexFileNamer namer, DexFile dexFile,
 			int minMainDexClassCount, boolean minimalMainDex, int maxDexPoolSize,
 			DexIO.Logger logger) throws IOException {
-		if (file.isDirectory()) {
-			return writeMultiDexDirectory(multiDex, threadCount, file, namer, dexFile, minMainDexClassCount,
-					minimalMainDex, maxDexPoolSize, logger);
-		} else {
-			if (multiDex) throw new UnsupportedOperationException(
-					"Must output to a directory if multi-dex mode is enabled");
-			RawDexIO.writeRawDexFile(file, dexFile, maxDexPoolSize, logger);
-			return 1;
-		}
+		if (!multiDex) throw new UnsupportedOperationException(
+				"Non-multidex is no longer supported, please use the official multidexlib2 for that."
+		);
+		return writeMultiDexDirectory(threadCount, output, namer, dexFile, minMainDexClassCount,
+				minimalMainDex, maxDexPoolSize, logger);
 	}
 
-	public static int writeMultiDexDirectory(boolean multiDex, int threadCount, File directory, DexFileNamer namer,
+	public static int writeMultiDexDirectory(int threadCount, Map<String, MemoryDataStore> output, DexFileNamer namer,
 			DexFile dexFile, int minMainDexClassCount, boolean minimalMainDex, int maxDexPoolSize, DexIO.Logger logger)
 			throws IOException {
-		purgeMultiDexDirectory(multiDex, directory, namer);
 		DexFileNameIterator nameIterator = new DexFileNameIterator(namer);
 		if (threadCount <= 0) {
 			threadCount = Runtime.getRuntime().availableProcessors();
 			if (threadCount > DEFAULT_MAX_THREADS) threadCount = DEFAULT_MAX_THREADS;
 		}
-		if (threadCount > 1 && multiDex && minMainDexClassCount == 0 && !minimalMainDex) {
-			DexIO.writeMultiDexDirectoryMultiThread(threadCount, directory, nameIterator, dexFile, maxDexPoolSize,
+		if (threadCount > 1 && minMainDexClassCount == 0 && !minimalMainDex) {
+			DexIO.writeMultiDexDirectoryMultiThread(threadCount, output, nameIterator, dexFile, maxDexPoolSize,
 					logger);
 		} else {
-			DexIO.writeMultiDexDirectorySingleThread(multiDex, directory, nameIterator, dexFile, minMainDexClassCount,
+			DexIO.writeMultiDexDirectorySingleThread(output, nameIterator, dexFile, minMainDexClassCount,
 					minimalMainDex, maxDexPoolSize, logger);
 		}
 		return nameIterator.getCount();
