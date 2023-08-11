@@ -37,19 +37,13 @@ ext.configurePom = { pom ->
 publishing {
     repositories {
         maven {
-            name = 'local'
-            url = rootProject.layout.buildDirectory.dir('repository')
-        }
-        if (project.hasProperty('publishing.url')) {
-            maven {
-                name = 'remote'
-                url = project.getProperty('publishing.url')
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/revanced/multidexlib2")
                 credentials {
-                    username = project.getProperty('publishing.username')
-                    password = project.getProperty('publishing.password')
+                    username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                    password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
                 }
             }
-        }
     }
 }
 
@@ -58,5 +52,3 @@ signing {
         sign publishing.publications
     }
 }
-
-assemble.dependsOn publishAllPublicationsToLocalRepository

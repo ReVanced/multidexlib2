@@ -42,7 +42,7 @@ apply from: 'configure-publishing.gradle'
 
 publishing {
     publications {
-        multidexlib2(MavenPublication) {
+        gpr(MavenPublication) {
             artifactId = mainArtifact
             from components.java
             pom {
