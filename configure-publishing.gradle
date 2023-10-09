@@ -34,19 +34,6 @@ ext.configurePom = { pom ->
     }
 }
 
-publishing {
-    repositories {
-        maven {
-                name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/revanced/multidexlib2")
-                credentials {
-                    username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-                    password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
-                }
-            }
-    }
-}
-
 signing {
     if (project.hasProperty('signing.secretKeyRingFile')) {
         sign publishing.publications
