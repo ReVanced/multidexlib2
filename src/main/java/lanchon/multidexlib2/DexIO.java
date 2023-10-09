@@ -17,7 +17,6 @@ import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -32,7 +31,7 @@ import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.DexFile;
 import com.android.tools.smali.dexlib2.writer.DexWriter;
 import com.android.tools.smali.dexlib2.writer.io.DexDataStore;
-import com.android.tools.smali.dexlib2.writer.io.MemoryDataStore;
+import com.android.tools.smali.dexlib2.writer.io.FileDataStore;
 import com.android.tools.smali.dexlib2.writer.pool.DexPool;
 
 public class DexIO {
@@ -66,14 +65,18 @@ public class DexIO {
 		dexPool.writeTo(dataStore);
 	}
 
-	static void writeMultiDexDirectorySingleThread(Map<String, MemoryDataStore> output, DexFileNameIterator nameIterator,
+	static void writeMultiDexDirectorySingleThread(boolean multiDex, File directory, DexFileNameIterator nameIterator,
 			DexFile dexFile, int minMainDexClassCount, boolean minimalMainDex, int maxDexPoolSize, DexIO.Logger logger)
 			throws IOException {
 		Set<? extends ClassDef> classes = dexFile.getClasses();
+		if (!multiDex) {
+			minMainDexClassCount = classes.size();
+			minimalMainDex = false;
+		}
 		Object lock = new Object();
 		//noinspection SynchronizationOnLocalVariableOrMethodParameter
 		synchronized (lock) {       // avoid multiple synchronizations in single-threaded mode
-			writeMultiDexDirectoryCommon(output, nameIterator, Iterators.peekingIterator(classes.iterator()),
+			writeMultiDexDirectoryCommon(directory, nameIterator, Iterators.peekingIterator(classes.iterator()),
 					minMainDexClassCount, minimalMainDex, dexFile.getOpcodes(), maxDexPoolSize, logger, lock);
 		}
 	}
@@ -82,7 +85,7 @@ public class DexIO {
 
 	private static final int PER_THREAD_BATCH_SIZE = 100;
 
-	static void writeMultiDexDirectoryMultiThread(int threadCount, final Map<String, MemoryDataStore> output,
+	static void writeMultiDexDirectoryMultiThread(int threadCount, final File directory,
 			final DexFileNameIterator nameIterator, final DexFile dexFile, final int maxDexPoolSize,
 			final DexIO.Logger logger) throws IOException {
 		Iterator<? extends ClassDef> classIterator = dexFile.getClasses().iterator();
@@ -96,7 +99,7 @@ public class DexIO {
 			callables.add(new Callable<Void>() {
 				@Override
 				public Void call() throws IOException {
-					writeMultiDexDirectoryCommon(output, nameIterator, batchedIterator, 0, false,
+					writeMultiDexDirectoryCommon(directory, nameIterator, batchedIterator, 0, false,
 							dexFile.getOpcodes(), maxDexPoolSize, logger, lock);
 					return null;
 				}
@@ -127,7 +130,7 @@ public class DexIO {
 
 	// Common Code
 
-	private static void writeMultiDexDirectoryCommon(Map<String, MemoryDataStore> output, DexFileNameIterator nameIterator,
+	private static void writeMultiDexDirectoryCommon(File directory, DexFileNameIterator nameIterator,
 			PeekingIterator<? extends ClassDef> classIterator, int minMainDexClassCount, boolean minimalMainDex,
 			Opcodes opcodes, int maxDexPoolSize, DexIO.Logger logger, Object lock) throws IOException {
 		do {
@@ -146,17 +149,17 @@ public class DexIO {
 				classIterator.next();
 				fileClassCount++;
 			}
-			String dexName;
-			MemoryDataStore memoryDataStore = new MemoryDataStore();
+			File file;
 			//noinspection SynchronizationOnLocalVariableOrMethodParameter
 			synchronized (lock) {
-				dexName = nameIterator.next();
+				String name = nameIterator.next();
+				file = new File(directory, name);
+				if (logger != null) logger.log(directory, name, fileClassCount);
 				if (classIterator instanceof BatchedIterator) {
 					((BatchedIterator<?>) classIterator).preloadBatch();
 				}
 			}
-			dexPool.writeTo(memoryDataStore);
-			output.put(dexName, memoryDataStore);
+			dexPool.writeTo(new FileDataStore(file));
 			minMainDexClassCount = 0;
 			minimalMainDex = false;
 		} while (classIterator.hasNext());
